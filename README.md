@@ -1,1 +1,17 @@
-"# -AI-Sales-Strategy-Bot" 
+# AI Sales Strategy Bot
+
+Quick start
+- Install dependencies: `pip install -r sales_ai_bot/requirements.txt`
+- Run: `streamlit run sales_ai_bot/app.py --server.port 8501`
+- Upload CSV/XLSX and generate stakeholder PDF from the Export section
+
+Key features
+- Executive KPIs with data-quality safeguards
+- Forecast methodology disclosure (MAPE, baseline, RMSE)
+- Churn risk (logistic, recency-based) with precision/recall
+- Product zone classification (BCG-style)
+- PDF export with KPI cards and chart insights
+
+Repo hygiene
+- Artifacts ignored via `.gitignore` (charts, PDFs, caches)
+- No secrets tracked; configure credentials locally for Git

@@ -1,0 +1,21 @@
+__pycache__/
+.pytest_cache/
+.venv/
+env/
+*.pyc
+*.pyo
+*.DS_Store
+.idea/
+.vscode/
+
+# Streamlit artifacts
+.streamlit/
+
+# Reports and generated charts
+reports/charts/*.png
+sales_ai_bot/pdf/*.pdf
+
+# Local data files
+*.csv
+*.xlsx
+
