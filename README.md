@@ -15,3 +15,5 @@ Key features
 Repo hygiene
 - Artifacts ignored via `.gitignore` (charts, PDFs, caches)
 - No secrets tracked; configure credentials locally for Git
+
+https://m5od4kzzqbouucnjkkweqy.streamlit.app/
