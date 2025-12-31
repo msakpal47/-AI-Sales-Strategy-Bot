@@ -55,6 +55,13 @@ from analysis_engine import six_month_forecast, top_bottom_products, uplift_plan
 from charts import create_charts
 from emailer import send_report
 from final_full_report import build_full_pdf
+from data_health import data_health
+from pattern_detector import detect_patterns as pd_detect_patterns
+from auto_segmentation import auto_segment
+from segment_runner import run_segments
+from ai_reasoning import ai_reason
+from data_understanding import build_view
+from data_understanding import detect_patterns, build_segments, analyze_segment, build_view, executive_synthesis
 
 file = st.file_uploader("Upload Sales File")
 st.markdown('<div class="upload-note">Upload up to 8 GB per file</div>', unsafe_allow_html=True)
@@ -63,8 +70,28 @@ if file:
     try:
         df = load_sales_file(file)
         cols = detect_columns(df)
+        st.subheader("Column Mapping")
+        with st.expander("Adjust detected columns"):
+            date_opt = st.selectbox("Date column", ["<none>"] + list(df.columns), index=(1 + list(df.columns).index(cols["date"])) if cols["date"] in df.columns else 0)
+            revenue_opt = st.selectbox("Revenue/Amount column", ["<none>"] + list(df.columns), index=(1 + list(df.columns).index(cols["revenue"])) if cols["revenue"] in df.columns else 0)
+            product_opt = st.selectbox("Product column", ["<none>"] + list(df.columns), index=(1 + list(df.columns).index(cols["product"])) if cols["product"] in df.columns else 0)
+            customer_opt = st.selectbox("Customer column", ["<none>"] + list(df.columns), index=(1 + list(df.columns).index(cols["customer"])) if cols["customer"] in df.columns else 0)
+            region_opt = st.selectbox("Region column", ["<none>"] + list(df.columns), index=(1 + list(df.columns).index(cols["region"])) if cols["region"] in df.columns else 0)
+            discount_opt = st.selectbox("Discount column", ["<none>"] + list(df.columns), index=(1 + list(df.columns).index(cols["discount"])) if cols["discount"] in df.columns else 0)
+        cols["date"] = None if date_opt == "<none>" else date_opt
+        cols["revenue"] = None if revenue_opt == "<none>" else revenue_opt
+        cols["product"] = None if product_opt == "<none>" else product_opt
+        cols["customer"] = None if customer_opt == "<none>" else customer_opt
+        cols["region"] = None if region_opt == "<none>" else region_opt
+        cols["discount"] = None if discount_opt == "<none>" else discount_opt
         if not cols.get("revenue"):
-            st.error("Revenue/Amount column not detected. Please include a revenue column.")
+            qty = cols.get("quantity")
+            price = cols.get("price")
+            if qty and price:
+                df["revenue"] = pd.to_numeric(df[qty], errors="coerce").fillna(0) * pd.to_numeric(df[price], errors="coerce").fillna(0)
+                cols["revenue"] = "revenue"
+        if not cols.get("revenue"):
+            st.error("Revenue/Amount column not detected. Map columns above or include a revenue column.")
         else:
             summary = sales_summary(df, cols)
             strategies = generate_strategy(summary)
@@ -74,6 +101,29 @@ if file:
 
             st.subheader("📊 Dashboard")
             render_dashboard(summary)
+
+            st.header("🩺 Data Health")
+            health = data_health(df, cols)
+            st.write(health)
+
+            st.header("🧠 Data Patterns Detected")
+            patterns = pd_detect_patterns(df, cols)
+            st.write(patterns)
+
+            st.header("🧩 Automatic Segmentation")
+            segments = auto_segment(df, cols)
+            seg_names = list(segments.keys())
+            segment_results = run_segments(segments, cols) if len(seg_names) > 0 else {}
+            final_ai_output = ai_reason(segment_results) if len(segment_results) > 0 else []
+            st.subheader("📊 Segment-wise Intelligence")
+            st.write(final_ai_output)
+            st.subheader("👤 Stakeholder Views")
+            roles = ["CEO", "Sales Head", "Marketing", "Ops"]
+            role = st.selectbox("Role", roles)
+            seg_choice = st.selectbox("Segment", list(segment_results.keys())) if len(segment_results) > 0 else None
+            if seg_choice:
+                view = build_view(segment_results[seg_choice], role)
+                st.write(view)
 
             st.subheader("🧠 AI Narrative")
             prompt = ai_prompt(summary, strategies)
@@ -269,10 +319,10 @@ if file:
                 ])
             if date_col and revenue_col:
                 monthly = df.copy()
-                monthly[revenue_col] = pd.to_numeric(monthly[revenue_col], errors="coerce").fillna(0)
-                monthly[date_col] = pd.to_datetime(monthly[date_col], errors="coerce")
+                monthly[revenue_col] = pd.to_numeric(monthly[revenue_col].astype(str).str.replace(r"[^\d\.\-]", "", regex=True), errors="coerce").fillna(0)
+                monthly[date_col] = pd.to_datetime(monthly[date_col], errors="coerce", infer_datetime_format=True)
                 monthly = monthly.dropna(subset=[date_col])
-                monthly_series = monthly.resample("M", on=date_col)[revenue_col].sum()
+                monthly_series = monthly.resample("ME", on=date_col)[revenue_col].sum()
                 if len(monthly_series) > 0:
                     st.line_chart(monthly_series)
                 else:
@@ -435,14 +485,33 @@ if file:
                         ],
                         "pagebreak": True
                     })
+                try:
+                    segs = segments if 'segments' in locals() else build_segments(df, cols)
+                    names = list(segs.keys())
+                except Exception:
+                    segs, names = {}, []
+                if len(names) > 0:
+                    for name in names[:6]:
+                        data = analyze_segment(segs[name], cols)
+                        tr = data["summary"].get("total_revenue", 0.0)
+                        cmx = data.get("churn")
+                        risk = int(len(cmx["customers_at_risk"])) if cmx and "customers_at_risk" in cmx else 0
+                        sections.append({
+                            "title": f"Segment — {name}",
+                            "text": [
+                                f"Revenue: INR {tr:,.2f}",
+                                f"Risk: {risk} customers at risk"
+                            ],
+                            "pagebreak": True
+                        })
                 sections.append({"title": "AI Strategy & What To Do Next", "text": strategies + smart, "pagebreak": False})
                 charts = None
                 if date_col and revenue_col and product_col:
                     mdf = df.copy()
-                    mdf[revenue_col] = pd.to_numeric(mdf[revenue_col], errors="coerce").fillna(0)
-                    mdf[date_col] = pd.to_datetime(mdf[date_col], errors="coerce")
+                    mdf[revenue_col] = pd.to_numeric(mdf[revenue_col].astype(str).str.replace(r"[^\d\.\-]", "", regex=True), errors="coerce").fillna(0)
+                    mdf[date_col] = pd.to_datetime(mdf[date_col], errors="coerce", infer_datetime_format=True)
                     mdf = mdf.dropna(subset=[date_col])
-                    monthly_df = mdf.resample("M", on=date_col)[revenue_col].sum().reset_index().rename(columns={date_col: "date", revenue_col: "revenue"})
+                    monthly_df = mdf.resample("ME", on=date_col)[revenue_col].sum().reset_index().rename(columns={date_col: "date", revenue_col: "revenue"})
                     tp = df.groupby(product_col)[revenue_col].sum().sort_values(ascending=False).head(5)
                     product_df = tp.reset_index().rename(columns={product_col: "product", revenue_col: "revenue"})
                     charts = create_charts(monthly_df, product_df)

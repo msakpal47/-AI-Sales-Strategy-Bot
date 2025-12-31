@@ -13,9 +13,8 @@ Key features
 - Churn risk (logistic, recency-based) with precision/recall
 - Product zone classification (BCG-style)
 - PDF export with KPI cards and chart insights
+- Multi-pattern → multi-segment → multi-stakeholder analysis
 
 Repo hygiene
 - Artifacts ignored via `.gitignore` (charts, PDFs, caches)
 - No secrets tracked; configure credentials locally for Git
-
-https://m5od4kzzqbouucnjkkweqy.streamlit.app/
