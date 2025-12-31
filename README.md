@@ -1,5 +1,4 @@
 https://m5od4kzzqbouucnjkkweqy.streamlit.app/
-
 # AI Sales Strategy Bot
 
 Quick start
